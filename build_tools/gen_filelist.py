@@ -35,7 +35,7 @@ def isIgnore(name):
 	if name.endswith(".meta"):
 		return True
 	bname = os.path.basename(name)
-	if bname == "Windows" or bname == "Android" or bname == "iOS":
+	if bname in ["Windows", "Android", "iOS"]:
 		# manifest同名文件
 		return False
 	if bname.find(".") < 0:
@@ -44,23 +44,20 @@ def isIgnore(name):
 		return True
 	if bname.startswith("filelist"):
 		return True
-	if bname.startswith("version"):
-		return True
-	return False
+	return bool(bname.startswith("version"))
 
 
 def GetFileMd5(filename):
 	if not os.path.isfile(filename):
 		return
 	myhash = hashlib.md5()
-	f = open(filename, 'rb')
-	# 分段读取文件并计算md5,对大文件友好
-	while True:
-		b = f.read(8096)
-		if not b:
-			break
-		myhash.update(b)
-	f.close()
+	with open(filename, 'rb') as f:
+			# 分段读取文件并计算md5,对大文件友好
+		while True:
+			if b := f.read(8096):
+				myhash.update(b)
+			else:
+				break
 	return myhash.hexdigest()
 
 
@@ -97,22 +94,20 @@ def makeFileLists(dir, save_path):
 			fw.flush()
 		print("filelist生成完成")
 	else:
-		sw = os.path.isfile(bak_filelist) and open(bak_filelist, 'r')
-		if sw:
+		if sw := os.path.isfile(bak_filelist) and open(bak_filelist, 'r'):
 			old_str = sw.read()
 			sw.close()
 		if new_str == old_str and os.path.exists(save_path):
 			print("filelist无需更新")
 		else:
-			sw = open(save_path, "w")
-			sw.write(new_str)
-			sw.close()
+			with open(save_path, "w") as sw:
+				sw.write(new_str)
 			print("filelist有更新，生成完成")
 
 
 if __name__ == "__main__":
 	try:
-		print("参数列表：", str(sys.argv))
+		print("参数列表：", sys.argv)
 		# 未传入参数则使用脚本所在路径的相对路径
 		dir_name = os.getcwd()
 		dst_path = dir_name +"\..\KSFramework\Product\Bundles\Windows\\"
@@ -134,13 +129,19 @@ if __name__ == "__main__":
 		makeFileLists(dir, dir + filelist_name)
 
 		# 生成version.txt 1.生成zip 2.写入version.txt 3.删除zip
-		product_dir = dir + '../../'
-		gen_hotfix_res.zip_dir(product_dir + "Lua", product_dir + "lua.zip", False)
-		gen_hotfix_res.zip_dir(product_dir + "Setting", product_dir + "setting.zip", False)
-		ver_list = [product_dir + "lua.zip", product_dir + "setting.zip", dir + filelist_name]
+		product_dir = f'{dir}../../'
+		gen_hotfix_res.zip_dir(f"{product_dir}Lua", f"{product_dir}lua.zip", False)
+		gen_hotfix_res.zip_dir(
+			f"{product_dir}Setting", f"{product_dir}setting.zip", False
+		)
+		ver_list = [
+			f"{product_dir}lua.zip",
+			f"{product_dir}setting.zip",
+			dir + filelist_name,
+		]
 		gen_hotfix_res.genVersion(product_dir + platform + "-" + version_name, ver_list)
-		os.remove(product_dir + "lua.zip")
-		os.remove(product_dir + "setting.zip")
+		os.remove(f"{product_dir}lua.zip")
+		os.remove(f"{product_dir}setting.zip")
 	except Exception as ex:
 		print
 		'Exception:\r\n'

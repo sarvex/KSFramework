@@ -29,17 +29,13 @@ def isIgnore(name):
     if name.endswith(".meta"):
         return True
     bname = os.path.basename(name)
-    if bname.find(".") < 0:
-        return True
-    if bname.startswith("."):
-        return True
-    return False
+    return True if bname.find(".") < 0 else bool(bname.startswith("."))
 
 
 def zip_dir(dirname, zipfilename, backup):
     if os.path.exists(zipfilename):
         if backup:
-            shutil.copyfile(zipfilename, zipfilename + '.bak')
+            shutil.copyfile(zipfilename, f'{zipfilename}.bak')
         os.remove(zipfilename)
 
     filelist = []
@@ -48,12 +44,12 @@ def zip_dir(dirname, zipfilename, backup):
             filelist.append(dirname)
     else:
         for root, dirs, files in os.walk(dirname):
-            for dir in dirs:
-                filelist.append(os.path.join(root, dir))
-            for name in files:
-                if not isIgnore(name):
-                    filelist.append(os.path.join(root, name))
-
+            filelist.extend(os.path.join(root, dir) for dir in dirs)
+            filelist.extend(
+                os.path.join(root, name)
+                for name in files
+                if not isIgnore(name)
+            )
     zf = zipfile.ZipFile(zipfilename, "w", zipfile.zlib.DEFLATED)
     for tar in filelist:
         arcname = tar[len(dirname):]
@@ -63,17 +59,16 @@ def zip_dir(dirname, zipfilename, backup):
 
 
 def genVersion(fname, name_list):
-    f = open(fname, "w")
-    for name in name_list:
-        if os.path.exists(name):
-            bname = os.path.basename(name)
-            version = gen_filelist.GetFileMd5(name)
-            size = str(os.path.getsize(name))
-            line = "{0},{1},{2}{3}".format(bname, version, size, "\n")
-            f.write(line)
-        else:
-            print("genVersion路径不存在", name)
-    f.close()
+    with open(fname, "w") as f:
+        for name in name_list:
+            if os.path.exists(name):
+                bname = os.path.basename(name)
+                version = gen_filelist.GetFileMd5(name)
+                size = str(os.path.getsize(name))
+                line = "{0},{1},{2}{3}".format(bname, version, size, "\n")
+                f.write(line)
+            else:
+                print("genVersion路径不存在", name)
     print("version更新完成")
 
 
@@ -94,8 +89,8 @@ if __name__ == "__main__":
         # print(dst_root,src_path)
 
         # 压缩为zip，经测试对同一目录多次zip，md5相同(文件未改变的情况)
-        zip_dir(src_path + 'Lua', dst_root + 'lua.zip', True)
-        zip_dir(src_path + 'Setting', dst_root + 'setting.zip', True)
+        zip_dir(f'{src_path}Lua', f'{dst_root}lua.zip', True)
+        zip_dir(f'{src_path}Setting', f'{dst_root}setting.zip', True)
         print("生成zip文件完成")
 
         src_ab = src_path + 'Bundles\\' + platform
@@ -105,7 +100,11 @@ if __name__ == "__main__":
             print("exist path,delete", dst_ab)
         shutil.copytree(src_ab, dst_ab, ignore=ignore_patterns('*.meta', '*.py', '*.bat'))
         print("同步ab文件{0}->{1} 完成".format(src_ab, dst_ab))
-        ver_list = [dst_root + "lua.zip", dst_root + 'setting.zip', dst_ab + '\\filelist.txt']
+        ver_list = [
+            f"{dst_root}lua.zip",
+            f'{dst_root}setting.zip',
+            dst_ab + '\\filelist.txt',
+        ]
         genVersion(dst_root + platform + "-" + version_name, ver_list)
     except Exception as ex:
         print
